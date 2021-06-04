@@ -11,6 +11,14 @@ Note: Since this was a learning exercise, I've avoided using certain patterns (e
 
 ### Things to add/improve:
 
-### Patch Notes (3rd June, 2021)
+### Patch Notes (5th June, 2021)
+- Set up the grid and a few basic functions, while starting to flesh out the structure of the main modules.
 
-### TODO (3rd June, 2021)
+### TODO (5th June, 2021)
+- Function to check win condition (n-in-a-row)
+- Show player names
+- Allow players to edit their names
+- Add a display to show the game outcome
+- Build a computer opponent
+- Allow players to use custom markers?
+- Allow players to change the grid size/win condition?
