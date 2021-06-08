@@ -1,30 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <title>Tic Tac Toe</title>
         <meta charset="UTF-8">
-        <meta name="author" value="Joseph Bakes">
-        <meta name="description" value="An app that lets you play Tic Tac Toe between two people, built as part of The Odin Project Full Stack Javascript Course.">
+        <meta name="author" content="Joseph Bakes">
+        <meta name="description" content="An app that lets you play Tic Tac Toe between two people, built as part of The Odin Project Full Stack Javascript Course.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="stylesheet" href="style.css">
     </head>
     <body>
-        <div class="l-page-wrapper">
-            <main class="l-main-wrapper">
-                <div class="l-info-wrapper --left">
-                    <div class="l-name-and-icon-wrapper">
-                        <div class="c-info__player-name">P1</div>
-                        <img src="assets/person_icon.svg" />
+        <div class="l-page__wrapper">
+            <main class="l-main__wrapper">
+                <!-- Header -->
+                <div class="l-header__wrapper js-header-wrapper">
+                    <!-- P1 Info-->
+                    <div class="l-player-info__wrapper --left js-player-info-wrapper">
+                        <div class="c-player-info__name js-player-name" data-player-index="0">P1</div>
+                        <img src="assets/person_icon.svg" alt="human"/>
+                    </div>
+                    <!-- Header Buttons -->
+                    <div class="l-header-buttons__wrapper">
+                        <button class="l-header-button --edit-button js-edit-button">Edit Players</button>
+                        <button class="l-header-button --reset-button js-reset-button">Reset</button>
+                    </div>
+                    <!-- P2 Info -->
+                    <div class="l-player-info__wrapper --right js-player-info-wrapper">
+                        <div class="c-player-info__name js-player-name" data-player-index="1">P2</div>
+                        <img src="assets/person_icon.svg" alt="human"/>
                     </div>
                 </div>
-                <div class="l-gameboard-wrapper">
+                <!-- Edit Players Menu -->
+                <div class="l-edit-menu__wrapper js-edit-menu-wrapper">
+                    <form class="c-edit-menu__form">
+                        <div class="l-player-info__inputs --left">
+                            <label for="p1-name">Name<br /></label>
+                            <input type="text" id="p1-name" name="p1-name" class="c-edit-menu__item" />
+                            <label for="p1-color">Colour: </label>
+                            <input type="color" id="p1-color" name="p1-color" class="c-edit-menu__item js-color-picker" data-player-index="0" />
+                            <label for="p1-type">Type:</label>
+                            <div class="l-player-type__wrapper">
+                                <input type="radio" id="p1-human" name="p1-type" value="human">
+                                <input type="radio" id="p1-cpu" name="p1-type" value="cpu">
+                            </div>
+                        </div>
+                        <div class="l-player-info__inputs --right">
+                            <label for="p2-name">Name<br /></label>
+                            <input type="text" id="p2-name" name="p2-name" class="c-edit-menu__item"/>
+                            <label for="p2-color">Colour: </label>
+                            <input type="color" id="p2-color" name="p2-color" class="c-edit-menu__item js-color-picker" data-player-index="1" />
+                            <label for="p2-type">Type:</label>
+                            <div class="l-player-type__wrapper">
+                                <input type="radio" id="p2-human" name="p2-type" value="human">
+                                <input type="radio" id="p2-cpu" name="p2-type" value="cpu">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <!-- Gameboard Wrapper -->
+                <div class="l-gameboard__wrapper">
+                    <!-- Gameboard -->
                     <div class="c-gameboard js-gameboard">
-
-                    </div>
-                </div>
-                <div class="l-info-wrapper --right">
-                    <div class="l-name-and-icon-wrapper">
-                        <div class="c-info__player-name">P2</div>
-                        <img src="assets/person_icon.svg" />
+                        <!-- Tiles -->
                     </div>
                 </div>
             </main>
@@ -32,3 +68,4 @@
         <div class="c-gameboard__tile js-template-tile js-tile" data-tile-number=""></div>
         <script src="main.js"></script>
     </body>
+</html>

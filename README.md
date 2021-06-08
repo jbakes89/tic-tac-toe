@@ -8,16 +8,23 @@ An app that lets you play Tic Tac Toe between two people, built as part of The O
 Note: Since this was a learning exercise, I've avoided using certain patterns (e.g., ES6 classes, modules). The intention of this project was to practice the use of the IIFE module pattern and factories.
 
 ### Things I've learned/practised:
+- Improving appearance of website on mobile devices
+- Creating a coherent, scalable, fluid appearance
+- Structuring code into suitable objects
 
 ### Things to add/improve:
 
-### Patch Notes (5th June, 2021)
-- Implemented function to check for n-in-a-row completion.
+### Patch Notes (9th June, 2021)
+- Added start and reset buttons (then removed the start button).
+- Improved appearance.
+- Started building edit menu.
 
-### TODO (5th June, 2021)
-- Show player names
-- Allow players to edit their names
+### TODO (9th June, 2021)
+- Allow players to edit their names and change colour
+    - Build an 'edit players' menu to set player name, colour, and (later) type (human or cpu)
+- Setup players based on current player info when resetting game
 - Add a display to show the game outcome
+- Add a running tally of game wins
 - Build a computer opponent
 - Allow players to use custom markers?
 - Allow players to change the grid size/win condition?

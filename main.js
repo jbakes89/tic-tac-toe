@@ -2,6 +2,9 @@
 
 const BOARD_SIZE = 3 // 3x3 grid
 const WIN_CONDITION = 3 // n in a row
+const DEFAULT_PLAYER_COLORS = ["rgb(52, 131, 223)", "rgb(255, 240, 109)"];
+
+
 
 const gameboard = (function(sideLength) {
     const _tiles = Array(sideLength**2).fill(null);
@@ -22,62 +25,126 @@ const gameboard = (function(sideLength) {
         return !(_tiles.includes(null));
     }
 
+    const resetAllTiles = () => {
+        _tiles.forEach((tile, index) => {
+            _tiles[index] = null;
+        });
+    }
+
     return {
         tiles, 
         element,
         setTileValue,
         isFilled,
-        getTileAt
+        getTileAt,
+        resetAllTiles
     };
 
 })(BOARD_SIZE);
 
 
-const playerFactory = (name, marker) => {
-    return { name, marker };
+
+
+
+const playerFactory = (name, marker, color) => {
+    return { name, marker, color };
 };
+
+
+
 
 
 const gameController = (function(nToWin) {
     let players = [];
     let currentPlayerIndex = 0;
 
+
     const _onInit = () => {
+        const editPlayersButton = document.querySelector(".js-edit-button");
+        editPlayersButton.addEventListener("click", editPlayers);
+        const resetButton = document.querySelector(".js-reset-button");
+        resetButton.addEventListener("click", resetGame);
+        startGame();
+    };
+
+    /* Start a new game */
+    const startGame = () => {
         _setupPlayers();
         document.addEventListener("click", handleClick);
-    }
+    };
 
+    /* Reset the current game */
+    const resetGame = () => {
+        displayController.clearAllTiles();
+        gameboard.resetAllTiles();
+        _randomizeCurrentPlayerIndex();
+        startGame();
+    };
+
+    /* Setup the players before the game */
     const _setupPlayers = () => {
         players = [
-            playerFactory("P1", "X"),
-            playerFactory("P2", "O")
+            playerFactory("P1", "X", DEFAULT_PLAYER_COLORS[0]),
+            playerFactory("P2", "O", DEFAULT_PLAYER_COLORS[1])
         ];
-        currentPlayerIndex = 0;
-    }
+        _randomizeCurrentPlayerIndex();
+    };
 
+    const editPlayers = () => {
+        editMenuController.toggleMenu();
+    };
+
+    const _randomizeCurrentPlayerIndex = () => {
+        currentPlayerIndex = Math.round(Math.random() * (players.length - 1));
+    };
+
+    /* Change the current player tp the person whose turn is next */
     const advancePlayerIndex = () => {
         currentPlayerIndex = (players.length - currentPlayerIndex < 2) ? 0 : currentPlayerIndex + 1;
+    };
+
+    const setColorOfPlayerAtIndex = (playerIndex, color) => {
+        players[playerIndex].color = color;
     }
 
-    const makeMoveAtTile = (tile) => {
-        const tileIndex = tile.dataset.tileNumber;
+    /* Handle click on grid tile */
+    const handleClick = e => {
+        if (e.target.classList.contains("js-tile")) {
+            makeMoveAtTileDiv(e.target);
+        }
+    }
+
+    /* Have the current player place a marker at the given tile */
+    const makeMoveAtTileDiv = (tileDiv) => {
+        const tileIndex = tileDiv.dataset.tileNumber;
         gameboard.setTileValue(tileIndex, currentPlayerIndex);
-        displayController.markTile(tile, players[currentPlayerIndex].marker);
-        if (!checkGameOutcome()) advancePlayerIndex();
+        displayController.markTileDiv(tileDiv, players[currentPlayerIndex].marker, players[currentPlayerIndex].color);
+        const outcome = checkGameOutcome();
+        switch (outcome) {
+            case "Tie":
+            case "Win":
+                // displayController.showMessageForOutcome(outcome);
+                document.removeEventListener("click", handleClick);
+                break;
+            default:
+                advancePlayerIndex();
+        }
     }
 
+    /* Check whether the game is finished, and if it's a win or tie */
     const checkGameOutcome = () => {
         if (gameboard.isFilled()) {
             console.log("Tie");
-            return true;
+            return "Tie";
         } else if (checkNInARow(WIN_CONDITION, Math.sqrt(gameboard.tiles().length))) {
             console.log(`Win: ${players[currentPlayerIndex].name} with ${players[currentPlayerIndex].marker}`);
-            return true;
+            return "Win";
         } else {
             return false;
         }
     }
 
+    /* Check the win condition (n-in-a-row) */
     const checkNInARow = (n) => {
         // console.log(`Checking for ${n}-in-a-row`)
         const gridSideLength = Math.sqrt(gameboard.tiles().length);
@@ -161,18 +228,28 @@ const gameController = (function(nToWin) {
         }
     }
 
-    const handleClick = e => {
-        if (e.target.classList.contains("js-tile")) {
-            makeMoveAtTile(e.target);
-        }
+    const updatePlayerColor = (color, playerIndex) => {
+        setColorOfPlayerAtIndex(playerIndex, color);
+        displayController.setPlayerIconBorderColor(color, playerIndex);
     }
 
     _onInit();
-    return {};
+    return {
+        updatePlayerColor
+    };
 })(WIN_CONDITION);
 
 
+
+
+
 const displayController = (function() {
+    const _editMenuWrapper = document.querySelector(".js-edit-menu-wrapper")
+
+    const _onInit = () => {
+        // _setupPlayerNameEditing();
+    }
+
     /**
      * Renders the game board to the screen by adding elements to the DOM.
      */
@@ -212,18 +289,88 @@ const displayController = (function() {
         })
         // Append fragment to board
         gameboard.element().appendChild(fragment);
+    };
+
+    const markTileDiv = (tileDiv, marker, color) => {
+        tileDiv.textContent = marker;
+        tileDiv.style.backgroundColor = color;
+    };
+
+    const clearAllTiles = () => {
+        const tileDivs = document.querySelectorAll(".js-tile");
+        tileDivs.forEach((tileDiv => {
+            tileDiv.textContent = "";
+            const defaultTileColor = window.getComputedStyle(document.documentElement).getPropertyValue("--js-tile-bg-col")
+            tileDiv.style.backgroundColor = defaultTileColor;
+        }))
     }
 
-    const markTile = (tile, marker) => {
-        tile.textContent = marker;
-    }
+    const _setupPlayerNameEditing = () => {
+        /* Make text editable on hovering */
+        const playerInfoWrappers = document.querySelectorAll(".js-player-info-wrapper")
+        playerInfoWrappers.forEach((wrapper) => {
+            wrapper.addEventListener("mouseenter", (e) => {
+                e.target.querySelector(".js-player-name").contentEditable = true;
+            })
+            wrapper.addEventListener("mouseleave", (e) => {
+                e.target.querySelector(".js-player-name").contentEditable = false;
+            })
+        })
+    };
 
+    const setPlayerIconBorderColor = (color, playerIndex) => {
+        const playerNameDiv = document.querySelector(`.js-player-name[data-player-index="${playerIndex}"]`);
+        playerNameDiv.parentElement.style.borderColor = color;
+    };
+
+    _onInit();
     return {
         renderBoard,
-        markTile
+        markTileDiv,
+        clearAllTiles,
+        setPlayerIconBorderColor
     };
 
 })();
+
+
+
+
+const editMenuController = (function() {
+    const _wrapper = document.querySelector(".js-edit-menu-wrapper");
+    const _playerColorPickers = document.querySelectorAll(".js-color-picker");
+    let _menuClosed = true;
+
+    const _onInit = () => {
+        _closeMenu();
+        _playerColorPickers.forEach(picker => { picker.addEventListener("input", _playerColorChanged) });
+    };
+
+    const _closeMenu = () => {
+        _wrapper.classList.add("--js-closed");
+    };
+
+    const _openMenu = () => {
+        _wrapper.classList.remove("--js-closed");
+    };
+
+    const toggleMenu = () => {
+        _wrapper.classList.toggle("--js-closed");
+    };
+
+    const _playerColorChanged = (e) => {
+        const playerIndex = e.target.dataset.playerIndex;
+        const color = e.target.value;
+        gameController.updatePlayerColor(color, playerIndex);
+    }
+
+    _onInit();
+    return {
+        toggleMenu
+    }
+
+})();
+
 
 
 function afterLoading() {
