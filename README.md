@@ -14,16 +14,16 @@ Note: Since this was a learning exercise, I've avoided using certain patterns (e
 
 ### Things to add/improve:
 
-### Patch Notes (9th June, 2021)
-- Added start and reset buttons (then removed the start button).
-- Improved appearance.
-- Started building edit menu.
+### Patch Notes (20th June, 2021)
+- Back to work after childbirth
+- Built a `colorFactory` to handle conversions between colour formats (RGB vs Hex)
 
-### TODO (9th June, 2021)
+### TODO (20th June, 2021)
 - Allow players to edit their names and change colour
     - Build an 'edit players' menu to set player name, colour, and (later) type (human or cpu)
 - Setup players based on current player info when resetting game
 - Add a display to show the game outcome
+- Set appropriate text colour depending on player choice of background colour
 - Add a running tally of game wins
 - Build a computer opponent
 - Allow players to use custom markers?

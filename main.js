@@ -51,6 +51,70 @@ const playerFactory = (name, marker, color) => {
 };
 
 
+const colorFactory = ({r=0, g=0, b=0, a=1.0, fromString=null}) => {
+    // console.log("===New Color===");
+
+    const _onInit = () => {
+        if (fromString) {
+            // console.log(`Making from string: ${fromString}`);
+            [r, g, b, a] = _setRGBAFromString(fromString);
+            // console.log(`New color is {r:${r}, g:${g}, b:${b}, a:${a}}`)
+        } else {
+            r = Math.min(Math.max(0, r), 255);
+            g = Math.min(Math.max(0, g), 255);
+            b = Math.min(Math.max(0, b), 255);
+            a = Math.min(Math.max(0, a), 1);
+        }
+    };
+
+    const _setRGBAFromString = (s) => {
+        let rgba = [0, 0, 0, 1.0];
+        // console.log(`Testing ${s.slice(0,3)} == "rgb" ? ${s.slice(0,1)} == "#" ?`);
+        if (s.slice(0,3) == "rgb") {
+            // console.log("Identified rgb(a) string");
+            rgba = s.replace(RegExp("\s|rgb(a?)|[\(\)]", "g"), "").split(",");
+            if (rgba.length == 3) rgba.push(1.0);
+            // console.log(`RGBA values updated to ${rgba}`);
+        } else if (s.slice(0,1) == "#") {
+            // console.log("Identified hex string");
+            let i = 0;
+            const chunkLength = s.length < 6 ? 1 : 2;
+            const numChunks = (s.length - 1) / chunkLength;
+            while (i < numChunks) {
+                const startIndex = 1 + i*chunkLength;
+                const thisValue = s.slice(startIndex, startIndex + chunkLength);
+                rgba[i] = (i != 3) ? parseInt(thisValue, 16) : parseInt(thisValue, 16) / 255;
+                i++;
+            }
+        }
+
+        rgba.forEach((e, index) => {
+            rgba[index] = (index != 3) ? parseInt(e) : parseFloat(e)
+        });
+        return rgba;
+    }
+
+    const asRGBString = (withAlpha=true) => {
+        return `rgba(${r}, ${g}, ${b}${withAlpha ? ", " + a.toString() : ""})`;
+    }
+
+    const asHexString = (withAlpha=false) => {
+        // console.log(`Converting color(r: ${r}, g: ${g}, b: ${b}, a: ${a}) to Hex string...`)
+        const hexString = `#${_componentToHex(r)}${_componentToHex(g)}${_componentToHex(b)}${withAlpha ? _componentToHex(parseInt(a * 255)) : ""}`;
+        // console.log(`Returning hexString: ${hexString}`);
+        return hexString;
+    }
+
+    const _componentToHex = (c) => {
+        let hex = c.toString(16);
+        hex = hex.length > 1 ? hex : "0" + hex;
+        // console.log(`Component ${c} converted to hex ${hex}`);
+        return hex
+    }
+
+    _onInit();
+    return { r, g, b, a, asRGBString, asHexString };
+};
 
 
 
@@ -64,11 +128,11 @@ const gameController = (function(nToWin) {
         editPlayersButton.addEventListener("click", editPlayers);
         const resetButton = document.querySelector(".js-reset-button");
         resetButton.addEventListener("click", resetGame);
-        startGame();
+        _startGame();
     };
 
     /* Start a new game */
-    const startGame = () => {
+    const _startGame = () => {
         _setupPlayers();
         document.addEventListener("click", handleClick);
     };
@@ -78,14 +142,19 @@ const gameController = (function(nToWin) {
         displayController.clearAllTiles();
         gameboard.resetAllTiles();
         _randomizeCurrentPlayerIndex();
-        startGame();
+        _startGame();
     };
+
+    /* End the current game */
+    const _endGame = () => {
+        document.removeEventListener("click", handleClick);
+    }
 
     /* Setup the players before the game */
     const _setupPlayers = () => {
         players = [
-            playerFactory("P1", "X", DEFAULT_PLAYER_COLORS[0]),
-            playerFactory("P2", "O", DEFAULT_PLAYER_COLORS[1])
+            playerFactory("P1", "X", colorFactory({fromString: DEFAULT_PLAYER_COLORS[0]})),
+            playerFactory("P2", "O", colorFactory({fromString: DEFAULT_PLAYER_COLORS[1]}))
         ];
         _randomizeCurrentPlayerIndex();
     };
@@ -98,18 +167,18 @@ const gameController = (function(nToWin) {
         currentPlayerIndex = Math.round(Math.random() * (players.length - 1));
     };
 
-    /* Change the current player tp the person whose turn is next */
+    /* Change the current player to the person whose turn is next */
     const advancePlayerIndex = () => {
         currentPlayerIndex = (players.length - currentPlayerIndex < 2) ? 0 : currentPlayerIndex + 1;
     };
 
-    const setColorOfPlayerAtIndex = (playerIndex, color) => {
-        players[playerIndex].color = color;
-    }
-
     /* Handle click on grid tile */
     const handleClick = e => {
-        if (e.target.classList.contains("js-tile")) {
+        if (editMenuController.editMenuIsOpen()) {
+            editMenuController.handleClick(e);
+            return;
+        }
+        else if (e.target.classList.contains("js-tile")) {
             makeMoveAtTileDiv(e.target);
         }
     }
@@ -124,7 +193,7 @@ const gameController = (function(nToWin) {
             case "Tie":
             case "Win":
                 // displayController.showMessageForOutcome(outcome);
-                document.removeEventListener("click", handleClick);
+                _endGame();
                 break;
             default:
                 advancePlayerIndex();
@@ -229,13 +298,29 @@ const gameController = (function(nToWin) {
     }
 
     const updatePlayerColor = (color, playerIndex) => {
-        setColorOfPlayerAtIndex(playerIndex, color);
+        players[playerIndex].color = color;
         displayController.setPlayerIconBorderColor(color, playerIndex);
+    }
+
+    const getPlayerColor = (playerIndex) => {
+        return players[playerIndex].color;
+    }
+
+    const updatePlayerName = (name, playerIndex) => {
+        players[playerIndex].name = name;
+        displayController.setPlayerName(name, playerIndex);
+    }
+
+    const getPlayerName = (playerIndex) => {
+        return players[playerIndex].name;
     }
 
     _onInit();
     return {
-        updatePlayerColor
+        updatePlayerColor,
+        getPlayerColor,
+        updatePlayerName,
+        getPlayerName
     };
 })(WIN_CONDITION);
 
@@ -247,13 +332,13 @@ const displayController = (function() {
     const _editMenuWrapper = document.querySelector(".js-edit-menu-wrapper")
 
     const _onInit = () => {
-        // _setupPlayerNameEditing();
+        _renderBoard();
     }
 
     /**
      * Renders the game board to the screen by adding elements to the DOM.
      */
-    const renderBoard = () => {
+    const _renderBoard = () => {
         // Prepare fragment
         const fragment = new DocumentFragment();
         // Find template tile
@@ -293,7 +378,7 @@ const displayController = (function() {
 
     const markTileDiv = (tileDiv, marker, color) => {
         tileDiv.textContent = marker;
-        tileDiv.style.backgroundColor = color;
+        tileDiv.style.backgroundColor = color.asHexString();
     };
 
     const clearAllTiles = () => {
@@ -320,15 +405,21 @@ const displayController = (function() {
 
     const setPlayerIconBorderColor = (color, playerIndex) => {
         const playerNameDiv = document.querySelector(`.js-player-name[data-player-index="${playerIndex}"]`);
-        playerNameDiv.parentElement.style.borderColor = color;
+        playerNameDiv.parentElement.style.borderColor = color.asHexString();
     };
 
+    const setPlayerName = (name, playerIndex) => {
+        const playerNameDiv = document.querySelector(`.js-player-name[data-player-index="${playerIndex}"]`);
+        playerNameDiv.textContent = name;
+    }
+
     _onInit();
+
     return {
-        renderBoard,
         markTileDiv,
         clearAllTiles,
-        setPlayerIconBorderColor
+        setPlayerIconBorderColor,
+        setPlayerName
     };
 
 })();
@@ -339,12 +430,18 @@ const displayController = (function() {
 const editMenuController = (function() {
     const _wrapper = document.querySelector(".js-edit-menu-wrapper");
     const _playerColorPickers = document.querySelectorAll(".js-color-picker");
-    let _menuClosed = true;
+    const _playerNameInputs = document.querySelectorAll(".js-name-input");
+    let lastPlayerNames = [];
+    let playerNameBeingEdited = false;
 
     const _onInit = () => {
         _closeMenu();
-        _playerColorPickers.forEach(picker => { picker.addEventListener("input", _playerColorChanged) });
+        setDefaultsForPlayerInfo();
     };
+
+    const editMenuIsOpen = () => {
+        return !(_wrapper.classList.contains("--js-closed"));
+    }
 
     const _closeMenu = () => {
         _wrapper.classList.add("--js-closed");
@@ -360,21 +457,63 @@ const editMenuController = (function() {
 
     const _playerColorChanged = (e) => {
         const playerIndex = e.target.dataset.playerIndex;
-        const color = e.target.value;
+        const color = colorFactory({fromString: e.target.value});
         gameController.updatePlayerColor(color, playerIndex);
+    }
+    
+    const _playerNameInputEdited = (e) => {
+        const playerIndex = e.target.dataset.playerIndex;
+        if (!playerNameBeingEdited) {
+            lastPlayerNames[playerIndex] = gameController.getPlayerName(playerIndex);
+        }
+        playerNameBeingEdited = true;
+        console.log(`Last name for player-${playerIndex}: ${lastPlayerNames[playerIndex]}`);
+        const name = e.target.value;
+        gameController.updatePlayerName(name, playerIndex);
+    }
+
+    const _playerNameChanged = (e) => {
+        const playerIndex = e.target.dataset.playerIndex;
+        const name = _validateNewPlayerName(e.target.value) ? e.target.value : lastPlayerNames[playerIndex];
+        e.target.value = name;
+        gameController.updatePlayerName(name, playerIndex);
+        playerNameBeingEdited = false;
+    }
+
+    const _validateNewPlayerName = (name) => {
+        if (!name) {
+            return false;
+        }
+
+        return true;
+    }
+
+    const setDefaultsForPlayerInfo = () => {
+        _playerColorPickers.forEach((picker, index) => {
+            picker.value = gameController.getPlayerColor(index).asHexString();
+            picker.addEventListener("input", _playerColorChanged);
+        });
+        _playerNameInputs.forEach((input, index) => {
+            input.addEventListener("input", _playerNameInputEdited);
+            input.addEventListener("change", _playerNameChanged);
+            input.value = gameController.getPlayerName(index);
+        })
+    }
+
+    const handleClick = (e) => {
+        if (editMenuIsOpen() &&
+        !e.target.closest(".js-edit-menu-wrapper") &&
+        !e.target.classList.contains("js-edit-button")
+        ) {
+            _closeMenu();
+        }
     }
 
     _onInit();
     return {
-        toggleMenu
+        toggleMenu,
+        editMenuIsOpen,
+        handleClick
     }
 
 })();
-
-
-
-function afterLoading() {
-    displayController.renderBoard();
-}
-
-afterLoading();

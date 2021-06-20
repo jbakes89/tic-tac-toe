@@ -229,6 +229,10 @@ body {
     margin-bottom: 15px;
 }
 
+.l-player-info__inputs.--right input[type="text"] {
+    text-align: right;
+}
+
 .c-edit-menu__form input[type="color"] {
     appearance: none;
     width: 35px;
