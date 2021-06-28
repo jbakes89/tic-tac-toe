@@ -32,32 +32,39 @@
                 <!-- Edit Players Menu -->
                 <div class="l-edit-menu__wrapper js-edit-menu-wrapper">
                     <form class="c-edit-menu__form">
-                        <div class="l-player-info__inputs --left">
-                            <label for="p1-name">Name<br /></label>
-                            <input type="text" id="p1-name" name="p1-name" class="c-edit-menu__item js-name-input" data-player-index="0" />
+                        <div class="l-player-info__input-wrapper --left">
+                            <label for="p1-name" class="js-name-label" data-player-index="0">Name:<br /></label>
+                            <input type="text" id="p1-name" name="p1-name" class="c-edit-menu__item js-name-input" data-player-index="0" maxlength="10" required />
                             <label for="p1-color">Colour: </label>
                             <input type="color" id="p1-color" name="p1-color" class="c-edit-menu__item js-color-picker" data-player-index="0" />
-                            <label for="p1-type">Type:</label>
+                            <!-- <label for="p1-type">Type:</label>
                             <div class="l-player-type__wrapper">
                                 <input type="radio" id="p1-human" name="p1-type" value="human">
                                 <input type="radio" id="p1-cpu" name="p1-type" value="cpu">
-                            </div>
+                            </div> -->
                         </div>
-                        <div class="l-player-info__inputs --right">
-                            <label for="p2-name">Name<br /></label>
-                            <input type="text" id="p2-name" name="p2-name" class="c-edit-menu__item js-name-input" data-player-index="1"/>
+                        <div class="l-edit-menu__middle">
+                            <ul class="c-edit-menu__input-error js-error-list">
+                                <li class="js-error-message --js-name-length --js-hidden">Name must be 1-10 characters</li>
+                                <li class="js-error-message --js-color-similarity --js-hidden">The selected colours are too similar</li>
+                            </ul>
+                            <button class="c-edit-menu__confirm-button js-confirm-edit-button">Confirm</button>
+                        </div>
+                        <div class="l-player-info__input-wrapper --right">
+                            <label for="p2-name" class="js-name-label" data-player-index="1">Name:<br /></label>
+                            <input type="text" id="p2-name" name="p2-name" class="c-edit-menu__item js-name-input" data-player-index="1" maxlength="10" required />
                             <label for="p2-color">Colour: </label>
                             <input type="color" id="p2-color" name="p2-color" class="c-edit-menu__item js-color-picker" data-player-index="1" />
-                            <label for="p2-type">Type:</label>
+                            <!-- <label for="p2-type">Type:</label>
                             <div class="l-player-type__wrapper">
                                 <input type="radio" id="p2-human" name="p2-type" value="human">
                                 <input type="radio" id="p2-cpu" name="p2-type" value="cpu">
-                            </div>
+                            </div> -->
                         </div>
                     </form>
                 </div>
                 <!-- Gameboard Wrapper -->
-                <div class="l-gameboard__wrapper">
+                <div class="l-gameboard__wrapper js-gameboard-wrapper">
                     <!-- Gameboard -->
                     <div class="c-gameboard js-gameboard">
                         <!-- Tiles -->

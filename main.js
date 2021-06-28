@@ -17,7 +17,11 @@ const gameboard = (function(sideLength) {
         _tiles[tileIndex] = value;
     };
 
-    const getTileAt = (rowIndex, colIndex) => {
+    const getTileAtIndex = (tileIndex) => {
+        return _tiles[tileIndex];
+    }
+
+    const getTileAtCoords = (rowIndex, colIndex) => {
         return _tiles[(rowIndex * sideLength) + colIndex];
     }
 
@@ -36,7 +40,8 @@ const gameboard = (function(sideLength) {
         element,
         setTileValue,
         isFilled,
-        getTileAt,
+        getTileAtIndex,
+        getTileAtCoords,
         resetAllTiles
     };
 
@@ -69,8 +74,13 @@ const colorFactory = ({r=0, g=0, b=0, a=1.0, fromString=null}) => {
 
     const _setRGBAFromString = (s) => {
         let rgba = [0, 0, 0, 1.0];
+        if (s == "white") {
+            rgba = [255, 255, 255, 1.0];
+        } else if (s == "black") {
+            rgba = [0, 0, 0, 1.0];
+        }
         // console.log(`Testing ${s.slice(0,3)} == "rgb" ? ${s.slice(0,1)} == "#" ?`);
-        if (s.slice(0,3) == "rgb") {
+        else if (s.slice(0,3) == "rgb") {
             // console.log("Identified rgb(a) string");
             rgba = s.replace(RegExp("\s|rgb(a?)|[\(\)]", "g"), "").split(",");
             if (rgba.length == 3) rgba.push(1.0);
@@ -112,8 +122,89 @@ const colorFactory = ({r=0, g=0, b=0, a=1.0, fromString=null}) => {
         return hex
     }
 
+    const _L = () => {
+        return _XYZ().Y;
+    }
+
+    const _compandedRGB = () => {
+        return [r, g, b].map((c) => {
+            const normC = c/255;
+            return normC <= 0.04045 ? normC/12.92 : Math.pow((normC + 0.055)/1.055, 2.4);
+        });
+    }
+
+    const contrastingColor = () => {
+        return _L()/100 > 0.179 ? colorFactory({fromString: "black"}) : colorFactory({fromString: "white"});
+    }
+
+    const _XYZ = () => {
+        const compandedRGB = _compandedRGB();
+        return {
+            X: 100*(0.4124*compandedRGB[0] + 0.3576*compandedRGB[1] + 0.1805*compandedRGB[2]),
+            Y: 100*(0.2126*compandedRGB[0] + 0.7152*compandedRGB[1] + 0.0722*compandedRGB[2]),
+            Z: 100*(0.0193*compandedRGB[0] + 0.1192*compandedRGB[1] + 0.9505*compandedRGB[2])
+        };
+    }
+
+    const CIELab = () => {
+        const D65 = { X: 95.0489, Y: 100, Z: 108.8840 };
+        const xyz = _XYZ();
+        Object.keys(xyz).forEach((key) => {
+            const norm = xyz[key] / D65[key];
+            xyz[key] = norm > 0.008856 ? Math.pow(norm, 1/3) : (7.787 * norm) + (16/116);
+        });
+
+        return {
+            L: (116 * xyz.Y) - 16,
+            a: 500 * (xyz.X - xyz.Y),
+            b: 200 * (xyz.Y - xyz.Z)
+        };
+    }
+
+    const _dE94 = (otherCol) => {
+        const kL = 1;
+        const kC = 1;
+        const kH = 1;
+        const K1 = 0.045;
+        const K2 = 0.015;
+
+        const Lab1 = CIELab();
+        const Lab2 = otherCol.CIELab();
+
+        const dEab = Math.sqrt(
+            (Lab2.L - Lab1.L)**2 +
+            (Lab2.a - Lab1.a)**2 +
+            (Lab2.b - Lab1.b)**2
+        );
+
+        const dL = Lab1.L - Lab2.L;
+        const da = Lab1.a - Lab2.a;
+        const db = Lab1.b - Lab2.b;
+        const C1 = Math.sqrt((Lab1.a**2) + (Lab1.b**2));
+        const C2 = Math.sqrt((Lab2.a**2) + (Lab2.b**2));
+        const dCab = C1 - C2;
+
+        const dHab = Math.sqrt(da**2 + db**2 - dCab**2)
+        const SL = 1;
+        const SC = 1 + K1*C1;
+        const SH = 1 + K2*C1;
+
+        return Math.sqrt(
+            (dL/(kL*SL))**2 +
+            (dCab/(kC*SC))**2 +
+            (dHab/(kH*SH))**2
+        );
+    }
+
+    const differsSufficientlyFrom = (otherCol) => {
+        const THRESHOLD = 20;
+        const deltaE = _dE94(otherCol);
+        console.log(`Delta E is ${deltaE}`);
+        return deltaE > THRESHOLD;
+    }
+
     _onInit();
-    return { r, g, b, a, asRGBString, asHexString };
+    return { r, g, b, a, asRGBString, asHexString, contrastingColor, CIELab, differsSufficientlyFrom };
 };
 
 
@@ -128,12 +219,13 @@ const gameController = (function(nToWin) {
         editPlayersButton.addEventListener("click", editPlayers);
         const resetButton = document.querySelector(".js-reset-button");
         resetButton.addEventListener("click", resetGame);
+        _setupPlayers();
         _startGame();
     };
 
     /* Start a new game */
     const _startGame = () => {
-        _setupPlayers();
+        // _setupPlayers();
         document.addEventListener("click", handleClick);
     };
 
@@ -186,17 +278,19 @@ const gameController = (function(nToWin) {
     /* Have the current player place a marker at the given tile */
     const makeMoveAtTileDiv = (tileDiv) => {
         const tileIndex = tileDiv.dataset.tileNumber;
-        gameboard.setTileValue(tileIndex, currentPlayerIndex);
-        displayController.markTileDiv(tileDiv, players[currentPlayerIndex].marker, players[currentPlayerIndex].color);
-        const outcome = checkGameOutcome();
-        switch (outcome) {
-            case "Tie":
-            case "Win":
-                // displayController.showMessageForOutcome(outcome);
-                _endGame();
-                break;
-            default:
-                advancePlayerIndex();
+        if (gameboard.getTileAtIndex(tileIndex) == null) {
+            gameboard.setTileValue(tileIndex, currentPlayerIndex);
+            displayController.markTileDiv(tileDiv, players[currentPlayerIndex].marker, players[currentPlayerIndex].color);
+            const outcome = checkGameOutcome();
+            switch (outcome) {
+                case "Tie":
+                case "Win":
+                    // displayController.showMessageForOutcome(outcome);
+                    _endGame();
+                    break;
+                default:
+                    advancePlayerIndex();
+            }
         }
     }
 
@@ -222,9 +316,9 @@ const gameController = (function(nToWin) {
         for (var row = 0; row < gridSideLength; row++) {
             // console.log(`Row ${row}`)
             let hitCounter = 1;
-            let lastTile = gameboard.getTileAt(row, 0);
+            let lastTile = gameboard.getTileAtCoords(row, 0);
             for (var col = 1; col < gridSideLength; col++) {
-                const thisTile = gameboard.getTileAt(row, col);
+                const thisTile = gameboard.getTileAtCoords(row, col);
                 hitCounter = ((lastTile || lastTile === 0) && thisTile === lastTile) ? hitCounter + 1 : 1;
                 // console.log(`R${row} C${col}: ${thisTile}; last=${lastTile}; hitCounter=>${hitCounter}`);
                 if (hitCounter == n) return true;
@@ -235,9 +329,9 @@ const gameController = (function(nToWin) {
         // Check columns
         for (var col = 0; col < gridSideLength; col++) {
             let hitCounter = 1;
-            let lastTile = gameboard.getTileAt(0, col);
+            let lastTile = gameboard.getTileAtCoords(0, col);
             for (var row = 1; row < gridSideLength; row++) {
-                const thisTile = gameboard.getTileAt(row, col);
+                const thisTile = gameboard.getTileAtCoords(row, col);
                 hitCounter = ((lastTile || lastTile === 0) && thisTile === lastTile) ? hitCounter + 1 : 1;
                 if (hitCounter == n) return true;
                 if (hitCounter + (gridSideLength - row) < n) break;
@@ -249,9 +343,9 @@ const gameController = (function(nToWin) {
         // scan along first row
         for (var col = 0; col < (gridSideLength - n) + 1; col++) {
             let hitCounter = 1;
-            let lastTile = gameboard.getTileAt(0, col);
+            let lastTile = gameboard.getTileAtCoords(0, col);
             for (var delta = 1; col + delta < gridSideLength; delta++) {
-                const thisTile = gameboard.getTileAt(delta, col + delta);
+                const thisTile = gameboard.getTileAtCoords(delta, col + delta);
                 hitCounter = ((lastTile || lastTile === 0) && thisTile === lastTile) ? hitCounter + 1 : 1;
                 if (hitCounter == n) return true;
                 if (hitCounter + (gridSideLength - (col + delta)) < n) break;
@@ -261,9 +355,9 @@ const gameController = (function(nToWin) {
         // scan down first col
         for (var row = 1; row < (gridSideLength - n) + 1; row++) {
             let hitCounter = 1;
-            let lastTile = gameboard.getTileAt(row, 0);
+            let lastTile = gameboard.getTileAtCoords(row, 0);
             for (var delta = 1; row + delta < gridSideLength; delta++) {
-                const thisTile = gameboard.getTileAt(row + delta, delta);
+                const thisTile = gameboard.getTileAtCoords(row + delta, delta);
                 hitCounter = ((lastTile || lastTile === 0) && thisTile === lastTile) ? hitCounter + 1 : 1;
                 if (hitCounter == n) return true;
                 if (hitCounter + (gridSideLength - (row + delta)) < n) break;
@@ -274,9 +368,9 @@ const gameController = (function(nToWin) {
         // scan along bottom row
         for (var col = 0; col < (gridSideLength - n) + 1; col++) {
             let hitCounter = 1;
-            let lastTile = gameboard.getTileAt(gridSideLength - 1, col);
+            let lastTile = gameboard.getTileAtCoords(gridSideLength - 1, col);
             for (var delta = 1; col + delta < gridSideLength; delta++) {
-                const thisTile = gameboard.getTileAt(gridSideLength - (1 + delta), col + delta);
+                const thisTile = gameboard.getTileAtCoords(gridSideLength - (1 + delta), col + delta);
                 hitCounter = ((lastTile || lastTile === 0) && thisTile === lastTile) ? hitCounter + 1 : 1;
                 if (hitCounter == n) return true;
                 if (hitCounter + (gridSideLength - (col + delta)) < n) break;
@@ -286,9 +380,9 @@ const gameController = (function(nToWin) {
         // scan up first col
         for (var row = gridSideLength - 1; row > n - 2; row--) {
             let hitCounter = 1;
-            let lastTile = gameboard.getTileAt(row, 0);
+            let lastTile = gameboard.getTileAtCoords(row, 0);
             for (var delta = 1; row - delta > -1; delta++) {
-                const thisTile = gameboard.getTileAt(row - delta, delta);
+                const thisTile = gameboard.getTileAtCoords(row - delta, delta);
                 hitCounter = ((lastTile || lastTile === 0) && thisTile === lastTile) ? hitCounter + 1 : 1;
                 if (hitCounter == n) return true;
                 if (hitCounter + (row - delta) < n) break;
@@ -320,7 +414,8 @@ const gameController = (function(nToWin) {
         updatePlayerColor,
         getPlayerColor,
         updatePlayerName,
-        getPlayerName
+        getPlayerName,
+        resetGame
     };
 })(WIN_CONDITION);
 
@@ -379,6 +474,7 @@ const displayController = (function() {
     const markTileDiv = (tileDiv, marker, color) => {
         tileDiv.textContent = marker;
         tileDiv.style.backgroundColor = color.asHexString();
+        tileDiv.style.color = color.contrastingColor().asHexString();
     };
 
     const clearAllTiles = () => {
@@ -390,19 +486,6 @@ const displayController = (function() {
         }))
     }
 
-    const _setupPlayerNameEditing = () => {
-        /* Make text editable on hovering */
-        const playerInfoWrappers = document.querySelectorAll(".js-player-info-wrapper")
-        playerInfoWrappers.forEach((wrapper) => {
-            wrapper.addEventListener("mouseenter", (e) => {
-                e.target.querySelector(".js-player-name").contentEditable = true;
-            })
-            wrapper.addEventListener("mouseleave", (e) => {
-                e.target.querySelector(".js-player-name").contentEditable = false;
-            })
-        })
-    };
-
     const setPlayerIconBorderColor = (color, playerIndex) => {
         const playerNameDiv = document.querySelector(`.js-player-name[data-player-index="${playerIndex}"]`);
         playerNameDiv.parentElement.style.borderColor = color.asHexString();
@@ -413,13 +496,25 @@ const displayController = (function() {
         playerNameDiv.textContent = name;
     }
 
+    const blurGameboard = () => {
+        const gameboardWrapper = document.querySelector(".js-gameboard-wrapper");
+        gameboardWrapper.classList.add("js-blur-effect");
+    }
+
+    const unblurGameboard = () => {
+        const gameboardWrapper = document.querySelector(".js-gameboard-wrapper");
+        gameboardWrapper.classList.remove("js-blur-effect");
+    }
+
     _onInit();
 
     return {
         markTileDiv,
         clearAllTiles,
         setPlayerIconBorderColor,
-        setPlayerName
+        setPlayerName,
+        blurGameboard,
+        unblurGameboard
     };
 
 })();
@@ -429,14 +524,36 @@ const displayController = (function() {
 
 const editMenuController = (function() {
     const _wrapper = document.querySelector(".js-edit-menu-wrapper");
+    const _form = _wrapper.querySelector("form");
     const _playerColorPickers = document.querySelectorAll(".js-color-picker");
     const _playerNameInputs = document.querySelectorAll(".js-name-input");
+    const _playerNameLabels = document.querySelectorAll(".js-name-label");
+    const _confirmButton = document.querySelector(".js-confirm-edit-button");
+    const _errorList = document.querySelector(".js-error-list");
+
+    const FormErrorMessage = {
+        nameLength: document.querySelector(".js-error-message.--js-name-length"),
+        colorSimilarity: document.querySelector(".js-error-message.--js-color-similarity")
+    }
+
     let lastPlayerNames = [];
     let playerNameBeingEdited = false;
 
     const _onInit = () => {
         _closeMenu();
-        setDefaultsForPlayerInfo();
+        
+        _confirmButton.addEventListener("click", (e) => _confirmForm())
+        _form.addEventListener("submit", (e) => _submitForm(e));
+
+        _playerColorPickers.forEach((picker, index) => {
+            picker.addEventListener("input", _playerColorChanged);
+        });
+        _playerNameInputs.forEach((input, index) => {
+            input.addEventListener("input", _playerNameInputEdited);
+            input.addEventListener("change", _playerNameChanged);
+        })
+
+        _resetPlayerInfo();
     };
 
     const editMenuIsOpen = () => {
@@ -445,57 +562,71 @@ const editMenuController = (function() {
 
     const _closeMenu = () => {
         _wrapper.classList.add("--js-closed");
+        displayController.unblurGameboard();
     };
 
     const _openMenu = () => {
         _wrapper.classList.remove("--js-closed");
+        displayController.blurGameboard();
     };
 
     const toggleMenu = () => {
-        _wrapper.classList.toggle("--js-closed");
+        editMenuIsOpen() ? _closeMenu() : _openMenu();
     };
 
     const _playerColorChanged = (e) => {
-        const playerIndex = e.target.dataset.playerIndex;
-        const color = colorFactory({fromString: e.target.value});
-        gameController.updatePlayerColor(color, playerIndex);
+        // const playerIndex = e.target.dataset.playerIndex;
+        // const color = colorFactory({fromString: e.target.value});
+        // gameController.updatePlayerColor(color, playerIndex);
     }
     
     const _playerNameInputEdited = (e) => {
         const playerIndex = e.target.dataset.playerIndex;
-        if (!playerNameBeingEdited) {
-            lastPlayerNames[playerIndex] = gameController.getPlayerName(playerIndex);
+        const nameLabel = document.querySelector(`.js-name-label[data-player-index="${playerIndex}"]`);
+
+        if (_validateNewPlayerName(e.target.value)) {
+
         }
-        playerNameBeingEdited = true;
-        console.log(`Last name for player-${playerIndex}: ${lastPlayerNames[playerIndex]}`);
-        const name = e.target.value;
-        gameController.updatePlayerName(name, playerIndex);
+        // const playerIndex = e.target.dataset.playerIndex;
+        // if (!playerNameBeingEdited) {
+        //     lastPlayerNames[playerIndex] = gameController.getPlayerName(playerIndex);
+        // }
+        // playerNameBeingEdited = true;
+        // console.log(`Last name for player-${playerIndex}: ${lastPlayerNames[playerIndex]}`);
+        // const name = e.target.value;
+        // gameController.updatePlayerName(name, playerIndex);
     }
 
     const _playerNameChanged = (e) => {
-        const playerIndex = e.target.dataset.playerIndex;
-        const name = _validateNewPlayerName(e.target.value) ? e.target.value : lastPlayerNames[playerIndex];
-        e.target.value = name;
-        gameController.updatePlayerName(name, playerIndex);
-        playerNameBeingEdited = false;
+        // const playerIndex = e.target.dataset.playerIndex;
+        // let name;
+        // if (_validateNewPlayerName(e.target.value)) {
+        //     name = e.target.value;
+        // } else {
+        //     name = lastPlayerNames[playerIndex];
+        // }
+        // e.target.value = name;
+        // gameController.updatePlayerName(name, playerIndex);
+        // playerNameBeingEdited = false;
     }
 
     const _validateNewPlayerName = (name) => {
-        if (!name) {
+        const errorMessage = _errorList.querySelector(".js-error-message.--js-name-length")
+
+        if ( !name || name.length > 10 ) {
+            errorMessage.classList.remove("--js-hidden");
             return false;
         }
 
+        errorMessage.classList.add("--js-hidden");
         return true;
     }
 
-    const setDefaultsForPlayerInfo = () => {
+    const _resetPlayerInfo = () => {
         _playerColorPickers.forEach((picker, index) => {
             picker.value = gameController.getPlayerColor(index).asHexString();
-            picker.addEventListener("input", _playerColorChanged);
         });
         _playerNameInputs.forEach((input, index) => {
-            input.addEventListener("input", _playerNameInputEdited);
-            input.addEventListener("change", _playerNameChanged);
             input.value = gameController.getPlayerName(index);
         })
     }
@@ -505,8 +636,62 @@ const editMenuController = (function() {
         !e.target.closest(".js-edit-menu-wrapper") &&
         !e.target.classList.contains("js-edit-button")
         ) {
-            _closeMenu();
+            _cancelForm();
         }
+    }
+
+    const _formIsValid = () => {
+        // Check player names (length 0 - 10 characters)
+        _playerNameInputs.forEach((input) => {
+            if (
+                input.value == "" ||
+                input.value.length > 10
+            ) {
+                console.log("Name is invalid (length)")
+                return false;
+            }
+        })
+        // Check that colors are not too similar
+        const playerCols = Array.from(_playerColorPickers, (picker) => {
+            return colorFactory({fromString: picker.value});
+        })
+        if (!playerCols[0].differsSufficientlyFrom(playerCols[1])) {
+            console.log("Colours too similar")
+            return false;
+        }
+
+        // Clear error list
+        _errorList.replaceChildren();
+        return true;
+    }
+
+    const _confirmForm = () => {
+        // Validate form content
+        if (_formIsValid()) {
+            _submitForm();
+        } else {
+            // Display error message
+        }
+    }
+
+    const _submitForm = (e) => {
+        if (e) e.preventDefault();
+
+        // Set player names and colors
+        _playerNameInputs.forEach((input) => {
+            gameController.updatePlayerName(input.value, input.dataset.playerIndex);
+        })
+        _playerColorPickers.forEach((picker) => {
+            gameController.updatePlayerColor(colorFactory({fromString: picker.value}), picker.dataset.playerIndex);
+        })
+        // Change colors already on grid or reset game?
+        gameController.resetGame();
+        _closeMenu();
+    }
+
+    const _cancelForm = () => {
+        _closeMenu();
+        _resetPlayerInfo();
     }
 
     _onInit();
