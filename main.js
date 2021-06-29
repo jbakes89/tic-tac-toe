@@ -197,9 +197,8 @@ const colorFactory = ({r=0, g=0, b=0, a=1.0, fromString=null}) => {
     }
 
     const differsSufficientlyFrom = (otherCol) => {
-        const THRESHOLD = 20;
+        const THRESHOLD = 10;
         const deltaE = _dE94(otherCol);
-        console.log(`Delta E is ${deltaE}`);
         return deltaE > THRESHOLD;
     }
 
@@ -212,6 +211,7 @@ const colorFactory = ({r=0, g=0, b=0, a=1.0, fromString=null}) => {
 const gameController = (function(nToWin) {
     let players = [];
     let currentPlayerIndex = 0;
+    let gameHasStarted = false;
 
 
     const _onInit = () => {
@@ -219,6 +219,11 @@ const gameController = (function(nToWin) {
         editPlayersButton.addEventListener("click", editPlayers);
         const resetButton = document.querySelector(".js-reset-button");
         resetButton.addEventListener("click", resetGame);
+
+        document.addEventListener("mousedown", handleMousedown);
+
+        document.addEventListener("keydown", (e) => _handleKeyboardInput(e));
+
         _setupPlayers();
         _startGame();
     };
@@ -226,7 +231,7 @@ const gameController = (function(nToWin) {
     /* Start a new game */
     const _startGame = () => {
         // _setupPlayers();
-        document.addEventListener("click", handleClick);
+        gameHasStarted = true;
     };
 
     /* Reset the current game */
@@ -239,7 +244,7 @@ const gameController = (function(nToWin) {
 
     /* End the current game */
     const _endGame = () => {
-        document.removeEventListener("click", handleClick);
+        gameHasStarted = false;
     }
 
     /* Setup the players before the game */
@@ -265,12 +270,12 @@ const gameController = (function(nToWin) {
     };
 
     /* Handle click on grid tile */
-    const handleClick = e => {
+    const handleMousedown = e => {
         if (editMenuController.editMenuIsOpen()) {
-            editMenuController.handleClick(e);
+            editMenuController.handleMousedown(e);
             return;
         }
-        else if (e.target.classList.contains("js-tile")) {
+        else if (e.target.classList.contains("js-tile") && gameHasStarted) {
             makeMoveAtTileDiv(e.target);
         }
     }
@@ -409,6 +414,12 @@ const gameController = (function(nToWin) {
         return players[playerIndex].name;
     }
 
+    const _handleKeyboardInput = (e) => {
+        if (editMenuController.editMenuIsOpen()) {
+            editMenuController.handleKeyboardInput(e);
+        }
+    }
+
     _onInit();
     return {
         updatePlayerColor,
@@ -494,6 +505,7 @@ const displayController = (function() {
     const setPlayerName = (name, playerIndex) => {
         const playerNameDiv = document.querySelector(`.js-player-name[data-player-index="${playerIndex}"]`);
         playerNameDiv.textContent = name;
+        _resizePlayerNames();
     }
 
     const blurGameboard = () => {
@@ -504,6 +516,13 @@ const displayController = (function() {
     const unblurGameboard = () => {
         const gameboardWrapper = document.querySelector(".js-gameboard-wrapper");
         gameboardWrapper.classList.remove("js-blur-effect");
+    }
+
+    const _resizePlayerNames = () => {
+        const headerWrapper = document.querySelector(".js-header-wrapper");
+        const defaultFontSize = headerWrapper.style.fontSize;
+
+        const availableWidth = headerWrapper.offsetWidth;
     }
 
     _onInit();
@@ -529,6 +548,8 @@ const editMenuController = (function() {
     const _playerNameInputs = document.querySelectorAll(".js-name-input");
     const _playerNameLabels = document.querySelectorAll(".js-name-label");
     const _confirmButton = document.querySelector(".js-confirm-edit-button");
+    const _cancelButton = document.querySelector(".js-cancel-edit-button");
+    const _confirmDialogWrapper = document.querySelector(".js-confirm-dialog-wrapper");
     const _errorList = document.querySelector(".js-error-list");
 
     const FormErrorMessage = {
@@ -542,15 +563,14 @@ const editMenuController = (function() {
     const _onInit = () => {
         _closeMenu();
         
-        _confirmButton.addEventListener("click", (e) => _confirmForm())
-        _form.addEventListener("submit", (e) => _submitForm(e));
+        _confirmButton.addEventListener("click", (e) => _confirmChanges(e));
+        _cancelButton.addEventListener("click", (e) => _cancelChanges(e));
 
         _playerColorPickers.forEach((picker, index) => {
-            picker.addEventListener("input", _playerColorChanged);
+            picker.addEventListener("input", _inputChanged);
         });
         _playerNameInputs.forEach((input, index) => {
-            input.addEventListener("input", _playerNameInputEdited);
-            input.addEventListener("change", _playerNameChanged);
+            input.addEventListener("input", _inputChanged);
         })
 
         _resetPlayerInfo();
@@ -568,51 +588,41 @@ const editMenuController = (function() {
     const _openMenu = () => {
         _wrapper.classList.remove("--js-closed");
         displayController.blurGameboard();
+        // Update error messages
+        _validateForm();
+        // Update confirm dialog
+        _confirmDialogWrapper.classList.add("--js-hidden");
     };
 
     const toggleMenu = () => {
-        editMenuIsOpen() ? _closeMenu() : _openMenu();
+        editMenuIsOpen() ? _cancelForm() : _openMenu();
     };
 
-    const _playerColorChanged = (e) => {
-        // const playerIndex = e.target.dataset.playerIndex;
-        // const color = colorFactory({fromString: e.target.value});
-        // gameController.updatePlayerColor(color, playerIndex);
-    }
-    
-    const _playerNameInputEdited = (e) => {
-        const playerIndex = e.target.dataset.playerIndex;
-        const nameLabel = document.querySelector(`.js-name-label[data-player-index="${playerIndex}"]`);
+    const _inputChanged = (e) => {
+        // Hide confirm changes
+        _confirmDialogWrapper.classList.add("--js-hidden");
 
-        if (_validateNewPlayerName(e.target.value)) {
-
+        if (_validateForm()) {
+            if (_infoHasChanged()) {
+                console.log("info has changed")
+                // Show confirm changes and return
+                _confirmDialogWrapper.classList.remove("--js-hidden");
+            }
         }
-        // const playerIndex = e.target.dataset.playerIndex;
-        // if (!playerNameBeingEdited) {
-        //     lastPlayerNames[playerIndex] = gameController.getPlayerName(playerIndex);
-        // }
-        // playerNameBeingEdited = true;
-        // console.log(`Last name for player-${playerIndex}: ${lastPlayerNames[playerIndex]}`);
-        // const name = e.target.value;
-        // gameController.updatePlayerName(name, playerIndex);
     }
 
-    const _playerNameChanged = (e) => {
-        // const playerIndex = e.target.dataset.playerIndex;
-        // let name;
-        // if (_validateNewPlayerName(e.target.value)) {
-        //     name = e.target.value;
-        // } else {
-        //     name = lastPlayerNames[playerIndex];
-        // }
-        // e.target.value = name;
-        // gameController.updatePlayerName(name, playerIndex);
-        // playerNameBeingEdited = false;
-    }
+    // const _playerColorChanged = (e) => {
+    //     _validateForm();
+    // }
+    
+    // const _playerNameInputEdited = (e) => {
+    //     _validateForm();
+    // }
 
-    const _validateNewPlayerName = (name) => {
-        const errorMessage = _errorList.querySelector(".js-error-message.--js-name-length")
+    const _validatePlayerName = (name) => {
+        const errorMessage = _errorList.querySelector(".js-error-message.--js-name-length");
 
+        // Check player names (length 0 - 10 characters)
         if ( !name || name.length > 10 ) {
             errorMessage.classList.remove("--js-hidden");
             return false;
@@ -620,6 +630,29 @@ const editMenuController = (function() {
 
         errorMessage.classList.add("--js-hidden");
         return true;
+    }
+
+    const _validateAllPlayerNames = () => {
+        for (let input of _playerNameInputs) {
+            if (!_validatePlayerName(input.value)) return false;
+        }
+        return true;
+    }
+
+    const _validatePlayerColors = () => {
+        const errorMessage = _errorList.querySelector(".js-error-message.--js-color-similarity");
+
+        // Check that colors are not too similar
+        const playerCols = Array.from(_playerColorPickers, (picker) => {
+            return colorFactory({fromString: picker.value});
+        })
+        if (!playerCols[0].differsSufficientlyFrom(playerCols[1])) {
+            errorMessage.classList.remove("--js-hidden");
+            return false;
+        }
+
+        errorMessage.classList.add("--js-hidden");
+        return true
     }
 
     const _resetPlayerInfo = () => {
@@ -631,7 +664,7 @@ const editMenuController = (function() {
         })
     }
 
-    const handleClick = (e) => {
+    const handleMousedown = (e) => {
         if (editMenuIsOpen() &&
         !e.target.closest(".js-edit-menu-wrapper") &&
         !e.target.classList.contains("js-edit-button")
@@ -640,38 +673,48 @@ const editMenuController = (function() {
         }
     }
 
-    const _formIsValid = () => {
-        // Check player names (length 0 - 10 characters)
-        _playerNameInputs.forEach((input) => {
-            if (
-                input.value == "" ||
-                input.value.length > 10
-            ) {
-                console.log("Name is invalid (length)")
-                return false;
-            }
-        })
-        // Check that colors are not too similar
-        const playerCols = Array.from(_playerColorPickers, (picker) => {
-            return colorFactory({fromString: picker.value});
-        })
-        if (!playerCols[0].differsSufficientlyFrom(playerCols[1])) {
-            console.log("Colours too similar")
-            return false;
+    const _infoHasChanged = () => {
+        console.log("=== Checking whether info has changed ===")
+        for (let input of _playerNameInputs) {
+            const currentName = gameController.getPlayerName(input.dataset.playerIndex)
+            console.log(`Current Name: ${currentName} vs. Input Value: ${input.value}`);
+            if (input.value != currentName) return true;
+        }
+        for (let picker of _playerColorPickers) {
+            const currentCol = gameController.getPlayerColor(picker.dataset.playerIndex).asHexString();
+            console.log(`Current Col: ${currentCol} vs. Picker Value: ${picker.value}`);
+            if (picker.value != currentCol) return true;
         }
 
-        // Clear error list
-        _errorList.replaceChildren();
-        return true;
+        return false;
     }
 
-    const _confirmForm = () => {
-        // Validate form content
-        if (_formIsValid()) {
-            _submitForm();
-        } else {
-            // Display error message
+    const _validateForm = () => {
+        let valid = true;
+
+        if (!_validateAllPlayerNames()) {
+            // _confirmButton.disabled = true;
+            valid = false;
         }
+        if (!_validatePlayerColors()) {
+            // _confirmButton.disabled = true;
+            valid = false;
+        }
+        // _confirmButton.disabled = false;
+        return valid;
+    }
+
+    const _confirmChanges = (e) => {
+        if (e) e.preventDefault();
+        // Validate form content
+        if (_validateForm()) {
+            _submitForm();
+        }
+    }
+
+    const _cancelChanges = (e) => {
+        if (e) e.preventDefault();
+        _cancelForm();
     }
 
     const _submitForm = (e) => {
@@ -694,11 +737,22 @@ const editMenuController = (function() {
         _resetPlayerInfo();
     }
 
+    const handleKeyboardInput = (e) => {
+        switch (e.key) {
+            case "Escape":
+            case "Esc":
+                _cancelForm();
+            case "Enter":
+                _confirmChanges();
+        }
+    }
+
     _onInit();
     return {
         toggleMenu,
         editMenuIsOpen,
-        handleClick
+        handleMousedown,
+        handleKeyboardInput
     }
 
 })();

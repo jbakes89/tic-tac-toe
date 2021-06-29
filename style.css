@@ -101,6 +101,7 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    min-width: fit-content;
 }
 
 .l-header-button {
@@ -269,18 +270,50 @@ body {
     filter: saturate(50%) blur(5px);
 }
 
-.c-edit-menu__confirm-button {
-    background-color: var(--edit-button-bg-col);
-    border: none;
+.l-edit-menu__buttons {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.c-edit-menu__confirm-changes {
+    margin-block-start: 0px;
+    color: white;
+}
+
+.c-edit-menu__button {
+    background-color: transparent;
     padding: 5px;
-    font-size: 14px;
-    border-radius: 2px;
+    font-size: 22px;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+}
+
+.c-edit-menu__button.--confirm-button {
+    border: 2px solid var(--edit-button-bg-col);
+    color: var(--edit-button-bg-col);
+}
+
+.c-edit-menu__button.--cancel-button {
+    border: 2px solid var(--reset-button-bg-col);
+    color: var(--reset-button-bg-col);
+}
+
+.c-edit-menu__button.--confirm-button:hover {
+    box-shadow: inset 0px 0px 10px 2px var(--edit-button-bg-col);
+}
+
+.c-edit-menu__button.--cancel-button:hover {
+    box-shadow: inset 0px 0px 10px 2px  var(--reset-button-bg-col);
 }
 
 .l-edit-menu__middle {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    align-items: center;
     padding: 0px 10px;
 }
 
@@ -292,5 +325,9 @@ body {
 }
 
 .js-error-message.--js-hidden {
+    display: none;
+}
+
+.l-edit-menu__confirm-dialog-wrapper.--js-hidden {
     display: none;
 }
