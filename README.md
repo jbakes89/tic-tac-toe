@@ -21,13 +21,9 @@ Note: This project was severly interrupted by the birth of my wonderful children
 - Allow players to set a custom grid size and the number of consecutive markers required for victory
 - Add a match history
 
-### Patch Notes (29th June, 2021)
-- Added validation for color pickers and error messages for invalid input.
-- Added a "Confirm changes?" dialog when the inputs on the edit menu have been changed.
-- Made sure that the edit menu properly resets (confirm dialog and error messages) on opening.
-- Added keyboard controls to submit/cancel edit form
+### Patch Notes (1st July, 2021)
+- Added automatic resizing of player names.
+- Added indication of current player's turn (tile hover color and change in player name border).
 
-### TODO (29th June, 2021)
-- Resize player names suitably whenever changed (`displayController._resizePlayerNames`)
+### TODO (1st July, 2021)
 - Add a display to show the game outcome
-- Show which player's turn it is.

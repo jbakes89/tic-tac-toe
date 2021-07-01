@@ -5,7 +5,7 @@
     --body-bg-col: black;
     --header-bg-col: transparent;
     --gameboard-bg-col: transparent;
-    --js-tiles-bg-col: grey;
+    --js-tiles-bg-col: rgb(128, 128, 128);
 
     --player-names-col: white;
 
@@ -27,6 +27,8 @@
     --edit-button-highlight: rgb(163, 241, 210);
 
     --reset-button-highlight: rgb(253, 199, 239);
+
+    --js-tile-hover-col: var(--js-player-1-bg-col);
 
     --gameboard-size: calc(0.9 * min(calc(100vh - var(--header-height)), 100vw));
     --tile-font-size: calc(0.25 * var(--gameboard-size));
@@ -69,7 +71,7 @@ body {
     justify-content: space-between;
     align-items: center;
     font-size: 48px;
-    padding: 0px 15px;
+    padding: 10px 15px;
     border-bottom: 3px solid white;
     box-sizing: border-box;
     z-index: 2;
@@ -77,31 +79,46 @@ body {
 }
 
 .l-player-info__wrapper {
-    padding: 1px 10px;
     display: flex;
     justify-content: flex-start;
     align-items: center;
-    border: 2px solid var(--js-player-1-bg-col);
+    flex: 1 0 0;
+}
+
+.c-player-info__border {
+    padding: 1px 10px;
+    display: flex;
+    align-items: center;
+    border: 2px dashed var(--js-player-1-bg-col);
 }
 
 .l-player-info__wrapper.--right {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    flex-direction: row-reverse;
-    border-color: var(--js-player-2-bg-col)
+    justify-content: flex-end;
 }
 
-.l-player-info__wrapper > img {
+.l-player-info__wrapper.--right > .c-player-info__border {
+    border-color: var(--js-player-2-bg-col);
+    flex-direction: row-reverse;
+}
+
+.c-player-info__border.--js-highlighted {
+    border-width: 3px;
+    border-style: solid;
+}
+
+
+.c-player-info__border > img {
     height: 0.6em;
 }
 
 .l-header-buttons__wrapper {
+    padding: 0px 10px;
     height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    min-width: fit-content;
+    flex: 0 0 auto;
+    width: max-content;
 }
 
 .l-header-button {
@@ -164,6 +181,10 @@ body {
     color: var(--dark-outline-col);
     background-color: var(--js-tiles-bg-col);
     overflow: hidden;
+}
+
+.c-gameboard__tile:hover {
+    background-color: var(--js-tile-hover-col);
 }
 
 /* Tile Borders */

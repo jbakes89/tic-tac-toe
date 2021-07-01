@@ -73,6 +73,7 @@ const colorFactory = ({r=0, g=0, b=0, a=1.0, fromString=null}) => {
     };
 
     const _setRGBAFromString = (s) => {
+        s = s.trim();
         let rgba = [0, 0, 0, 1.0];
         if (s == "white") {
             rgba = [255, 255, 255, 1.0];
@@ -225,12 +226,11 @@ const gameController = (function(nToWin) {
         document.addEventListener("keydown", (e) => _handleKeyboardInput(e));
 
         _setupPlayers();
-        _startGame();
     };
 
     /* Start a new game */
     const _startGame = () => {
-        // _setupPlayers();
+        _randomizeCurrentPlayerIndex();
         gameHasStarted = true;
     };
 
@@ -238,13 +238,13 @@ const gameController = (function(nToWin) {
     const resetGame = () => {
         displayController.clearAllTiles();
         gameboard.resetAllTiles();
-        _randomizeCurrentPlayerIndex();
         _startGame();
     };
 
     /* End the current game */
     const _endGame = () => {
         gameHasStarted = false;
+        displayController.removeHoverColor();
     }
 
     /* Setup the players before the game */
@@ -253,20 +253,25 @@ const gameController = (function(nToWin) {
             playerFactory("P1", "X", colorFactory({fromString: DEFAULT_PLAYER_COLORS[0]})),
             playerFactory("P2", "O", colorFactory({fromString: DEFAULT_PLAYER_COLORS[1]}))
         ];
-        _randomizeCurrentPlayerIndex();
     };
 
     const editPlayers = () => {
         editMenuController.toggleMenu();
     };
 
+    const _setCurrentPlayerIndex = (newIndex) => {
+        currentPlayerIndex = newIndex
+        displayController.setHoverColor(players[currentPlayerIndex].color);
+        displayController.highlightPlayer(currentPlayerIndex);
+    }
+
     const _randomizeCurrentPlayerIndex = () => {
-        currentPlayerIndex = Math.round(Math.random() * (players.length - 1));
+        _setCurrentPlayerIndex(Math.round(Math.random() * (players.length - 1)));
     };
 
     /* Change the current player to the person whose turn is next */
     const advancePlayerIndex = () => {
-        currentPlayerIndex = (players.length - currentPlayerIndex < 2) ? 0 : currentPlayerIndex + 1;
+        _setCurrentPlayerIndex((players.length - currentPlayerIndex < 2) ? 0 : currentPlayerIndex + 1);
     };
 
     /* Handle click on grid tile */
@@ -301,12 +306,12 @@ const gameController = (function(nToWin) {
 
     /* Check whether the game is finished, and if it's a win or tie */
     const checkGameOutcome = () => {
-        if (gameboard.isFilled()) {
-            console.log("Tie");
-            return "Tie";
-        } else if (checkNInARow(WIN_CONDITION, Math.sqrt(gameboard.tiles().length))) {
+        if (checkNInARow(WIN_CONDITION, Math.sqrt(gameboard.tiles().length))) {
             console.log(`Win: ${players[currentPlayerIndex].name} with ${players[currentPlayerIndex].marker}`);
             return "Win";
+        } else if (gameboard.isFilled()) {
+            console.log("Tie");
+            return "Tie";
         } else {
             return false;
         }
@@ -420,13 +425,22 @@ const gameController = (function(nToWin) {
         }
     }
 
+    const afterLoading = () => {
+        players.forEach((player, index) => {
+            updatePlayerName(player.name, index);
+            updatePlayerColor(player.color, index);
+        });
+        _startGame();
+    }
+
     _onInit();
     return {
         updatePlayerColor,
         getPlayerColor,
         updatePlayerName,
         getPlayerName,
-        resetGame
+        resetGame,
+        afterLoading
     };
 })(WIN_CONDITION);
 
@@ -439,6 +453,8 @@ const displayController = (function() {
 
     const _onInit = () => {
         _renderBoard();
+
+        window.addEventListener("resize", (e) => _windowWasResized());
     }
 
     /**
@@ -492,8 +508,7 @@ const displayController = (function() {
         const tileDivs = document.querySelectorAll(".js-tile");
         tileDivs.forEach((tileDiv => {
             tileDiv.textContent = "";
-            const defaultTileColor = window.getComputedStyle(document.documentElement).getPropertyValue("--js-tile-bg-col")
-            tileDiv.style.backgroundColor = defaultTileColor;
+            tileDiv.style.backgroundColor = "";
         }))
     }
 
@@ -518,11 +533,73 @@ const displayController = (function() {
         gameboardWrapper.classList.remove("js-blur-effect");
     }
 
-    const _resizePlayerNames = () => {
-        const headerWrapper = document.querySelector(".js-header-wrapper");
-        const defaultFontSize = headerWrapper.style.fontSize;
+    const setHoverColor = (color) => {
+        document.documentElement.style.setProperty("--js-tile-hover-col", color.asHexString());
+    }
 
-        const availableWidth = headerWrapper.offsetWidth;
+    const removeHoverColor = () => {
+        const defaultTileColor = colorFactory({fromString: window.getComputedStyle(document.documentElement).getPropertyValue("--js-tiles-bg-col")})
+        setHoverColor(defaultTileColor);
+    }
+
+    const highlightPlayer = (playerIndex) => {
+        const playerNameDivs = document.querySelectorAll(".js-player-name");
+        playerNameDivs.forEach((div) => {
+            if (div.dataset.playerIndex == playerIndex) {
+                div.parentElement.classList.add("--js-highlighted");
+            } else {
+                div.parentElement.classList.remove("--js-highlighted");
+            }
+        });
+    }
+
+    const _resizePlayerNames = () => {
+        console.log("=== Resizing player names ===");
+        const headerWrapper = document.querySelector(".js-header-wrapper");
+        const headerWrapperStyle = window.getComputedStyle(headerWrapper);
+        const buttonWrapper = document.querySelector(".js-header-buttons-wrapper");
+
+        const headerInnerWidth = (headerWrapper.clientWidth -
+            (
+                parseFloat(headerWrapperStyle.paddingLeft) +
+                parseFloat(headerWrapperStyle.paddingRight)
+            ));
+        const availableWidth = (headerInnerWidth - buttonWrapper.offsetWidth)/2;
+        const availableHeight = (headerWrapper.clientHeight -
+            (
+                parseFloat(headerWrapperStyle.paddingTop) +
+                parseFloat(headerWrapperStyle.paddingBottom)
+            ));
+
+        console.log(`headerInnerWidth: ${headerInnerWidth}, buttonWrapperWidth: ${buttonWrapper.offsetWidth}, availableWidth: ${availableWidth}, availableHeight: ${availableHeight}.`);
+
+        const borderBoxes = document.querySelectorAll(".js-player-info-border");
+        
+        borderBoxes.forEach((box) => {
+            console.log(`--- borderBox ${box.firstElementChild.dataset.playerIndex}`);
+            const boxStyle = window.getComputedStyle(box);
+            const currentFontSize = parseFloat(boxStyle.fontSize);
+            const innerWidth = box.clientWidth - ((
+                parseFloat(boxStyle.paddingLeft) +
+                parseFloat(boxStyle.paddingRight)
+            ));
+            const innerHeight = box.clientHeight - ((
+                parseFloat(boxStyle.paddingTop) +
+                parseFloat(boxStyle.paddingBottom)
+            ));
+            const extraWidth = box.offsetWidth - innerWidth;
+            const extraHeight = box.offsetHeight - innerHeight;
+            const heightScaleFactor = (availableHeight - extraHeight)/innerHeight;
+            const widthScaleFactor = (availableWidth - extraWidth)/innerWidth;
+            console.log(`currentFontSize: ${currentFontSize}, height: ${innerHeight}, width: ${innerWidth}`)
+            console.log(`height-SF: ${heightScaleFactor}, width-SF: ${widthScaleFactor}`);
+            const newFontSize = `${Math.min(heightScaleFactor, widthScaleFactor) * currentFontSize}px`;
+            box.style.fontSize = newFontSize;
+        })
+    }
+
+    const _windowWasResized = () => {
+        _resizePlayerNames();
     }
 
     _onInit();
@@ -533,7 +610,10 @@ const displayController = (function() {
         setPlayerIconBorderColor,
         setPlayerName,
         blurGameboard,
-        unblurGameboard
+        unblurGameboard,
+        setHoverColor,
+        removeHoverColor,
+        highlightPlayer
     };
 
 })();
@@ -611,14 +691,6 @@ const editMenuController = (function() {
         }
     }
 
-    // const _playerColorChanged = (e) => {
-    //     _validateForm();
-    // }
-    
-    // const _playerNameInputEdited = (e) => {
-    //     _validateForm();
-    // }
-
     const _validatePlayerName = (name) => {
         const errorMessage = _errorList.querySelector(".js-error-message.--js-name-length");
 
@@ -693,14 +765,12 @@ const editMenuController = (function() {
         let valid = true;
 
         if (!_validateAllPlayerNames()) {
-            // _confirmButton.disabled = true;
             valid = false;
         }
         if (!_validatePlayerColors()) {
-            // _confirmButton.disabled = true;
             valid = false;
         }
-        // _confirmButton.disabled = false;
+
         return valid;
     }
 
@@ -756,3 +826,5 @@ const editMenuController = (function() {
     }
 
 })();
+
+gameController.afterLoading();
