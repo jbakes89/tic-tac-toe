@@ -21,9 +21,7 @@ Note: This project was severly interrupted by the birth of my wonderful children
 - Allow players to set a custom grid size and the number of consecutive markers required for victory
 - Add a match history
 
-### Patch Notes (1st July, 2021)
+### Patch Notes (6th July, 2021)
 - Added automatic resizing of player names.
 - Added indication of current player's turn (tile hover color and change in player name border).
-
-### TODO (1st July, 2021)
-- Add a display to show the game outcome
+- Added display to show game outcome.

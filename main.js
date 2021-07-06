@@ -172,12 +172,6 @@ const colorFactory = ({r=0, g=0, b=0, a=1.0, fromString=null}) => {
         const Lab1 = CIELab();
         const Lab2 = otherCol.CIELab();
 
-        const dEab = Math.sqrt(
-            (Lab2.L - Lab1.L)**2 +
-            (Lab2.a - Lab1.a)**2 +
-            (Lab2.b - Lab1.b)**2
-        );
-
         const dL = Lab1.L - Lab2.L;
         const da = Lab1.a - Lab2.a;
         const db = Lab1.b - Lab2.b;
@@ -231,6 +225,7 @@ const gameController = (function(nToWin) {
     /* Start a new game */
     const _startGame = () => {
         _randomizeCurrentPlayerIndex();
+        displayController.hideVictoryMessage();
         gameHasStarted = true;
     };
 
@@ -274,14 +269,19 @@ const gameController = (function(nToWin) {
         _setCurrentPlayerIndex((players.length - currentPlayerIndex < 2) ? 0 : currentPlayerIndex + 1);
     };
 
-    /* Handle click on grid tile */
+    /* Handle click */
     const handleMousedown = e => {
+        if (e.button != 0) {
+            return;
+        }
         if (editMenuController.editMenuIsOpen()) {
             editMenuController.handleMousedown(e);
-            return;
         }
         else if (e.target.classList.contains("js-tile") && gameHasStarted) {
             makeMoveAtTileDiv(e.target);
+        }
+        else if (displayController.victoryMessageIsOpen()) {
+            displayController.hideVictoryMessage();
         }
     }
 
@@ -295,7 +295,7 @@ const gameController = (function(nToWin) {
             switch (outcome) {
                 case "Tie":
                 case "Win":
-                    // displayController.showMessageForOutcome(outcome);
+                    displayController.showVictoryMessage(players[currentPlayerIndex].name, outcome);
                     _endGame();
                     break;
                 default:
@@ -307,13 +307,11 @@ const gameController = (function(nToWin) {
     /* Check whether the game is finished, and if it's a win or tie */
     const checkGameOutcome = () => {
         if (checkNInARow(WIN_CONDITION, Math.sqrt(gameboard.tiles().length))) {
-            console.log(`Win: ${players[currentPlayerIndex].name} with ${players[currentPlayerIndex].marker}`);
             return "Win";
         } else if (gameboard.isFilled()) {
-            console.log("Tie");
             return "Tie";
         } else {
-            return false;
+            return "None";
         }
     }
 
@@ -449,7 +447,8 @@ const gameController = (function(nToWin) {
 
 
 const displayController = (function() {
-    const _editMenuWrapper = document.querySelector(".js-edit-menu-wrapper")
+    const _victoryMessageWrapper = document.querySelector(".js-victory-message-wrapper");
+    let victoryMessageOpenFlag = false;
 
     const _onInit = () => {
         _renderBoard();
@@ -554,7 +553,6 @@ const displayController = (function() {
     }
 
     const _resizePlayerNames = () => {
-        console.log("=== Resizing player names ===");
         const headerWrapper = document.querySelector(".js-header-wrapper");
         const headerWrapperStyle = window.getComputedStyle(headerWrapper);
         const buttonWrapper = document.querySelector(".js-header-buttons-wrapper");
@@ -571,12 +569,10 @@ const displayController = (function() {
                 parseFloat(headerWrapperStyle.paddingBottom)
             ));
 
-        console.log(`headerInnerWidth: ${headerInnerWidth}, buttonWrapperWidth: ${buttonWrapper.offsetWidth}, availableWidth: ${availableWidth}, availableHeight: ${availableHeight}.`);
 
         const borderBoxes = document.querySelectorAll(".js-player-info-border");
         
         borderBoxes.forEach((box) => {
-            console.log(`--- borderBox ${box.firstElementChild.dataset.playerIndex}`);
             const boxStyle = window.getComputedStyle(box);
             const currentFontSize = parseFloat(boxStyle.fontSize);
             const innerWidth = box.clientWidth - ((
@@ -591,8 +587,6 @@ const displayController = (function() {
             const extraHeight = box.offsetHeight - innerHeight;
             const heightScaleFactor = (availableHeight - extraHeight)/innerHeight;
             const widthScaleFactor = (availableWidth - extraWidth)/innerWidth;
-            console.log(`currentFontSize: ${currentFontSize}, height: ${innerHeight}, width: ${innerWidth}`)
-            console.log(`height-SF: ${heightScaleFactor}, width-SF: ${widthScaleFactor}`);
             const newFontSize = `${Math.min(heightScaleFactor, widthScaleFactor) * currentFontSize}px`;
             box.style.fontSize = newFontSize;
         })
@@ -600,6 +594,33 @@ const displayController = (function() {
 
     const _windowWasResized = () => {
         _resizePlayerNames();
+    }
+
+    const showVictoryMessage = (playerName, outcome) => {
+        const victoryMessageElement = _victoryMessageWrapper.querySelector(".js-victory-message");
+        victoryMessageElement.textContent = _getMessageForOutcome(playerName, outcome);
+        _victoryMessageWrapper.classList.remove("--js-hidden");
+        victoryMessageOpenFlag = true;
+    }
+
+    const hideVictoryMessage = () => {
+        _victoryMessageWrapper.classList.add("--js-hidden");
+        victoryMessageOpenFlag = false;
+    }
+
+    const _getMessageForOutcome = (playerName, outcome) => {
+        switch (outcome) {
+            case "Win":
+                return `${playerName} wins!`;
+            case "Tie":
+                return "It's a tie!";
+            default:
+                return "ERROR: Undefined outcome";
+        }
+    }
+
+    const victoryMessageIsOpen = () => {
+        return victoryMessageOpenFlag
     }
 
     _onInit();
@@ -613,7 +634,10 @@ const displayController = (function() {
         unblurGameboard,
         setHoverColor,
         removeHoverColor,
-        highlightPlayer
+        highlightPlayer,
+        showVictoryMessage,
+        hideVictoryMessage,
+        victoryMessageIsOpen
     };
 
 })();
@@ -623,22 +647,12 @@ const displayController = (function() {
 
 const editMenuController = (function() {
     const _wrapper = document.querySelector(".js-edit-menu-wrapper");
-    const _form = _wrapper.querySelector("form");
     const _playerColorPickers = document.querySelectorAll(".js-color-picker");
     const _playerNameInputs = document.querySelectorAll(".js-name-input");
-    const _playerNameLabels = document.querySelectorAll(".js-name-label");
     const _confirmButton = document.querySelector(".js-confirm-edit-button");
     const _cancelButton = document.querySelector(".js-cancel-edit-button");
     const _confirmDialogWrapper = document.querySelector(".js-confirm-dialog-wrapper");
     const _errorList = document.querySelector(".js-error-list");
-
-    const FormErrorMessage = {
-        nameLength: document.querySelector(".js-error-message.--js-name-length"),
-        colorSimilarity: document.querySelector(".js-error-message.--js-color-similarity")
-    }
-
-    let lastPlayerNames = [];
-    let playerNameBeingEdited = false;
 
     const _onInit = () => {
         _closeMenu();
@@ -646,10 +660,10 @@ const editMenuController = (function() {
         _confirmButton.addEventListener("click", (e) => _confirmChanges(e));
         _cancelButton.addEventListener("click", (e) => _cancelChanges(e));
 
-        _playerColorPickers.forEach((picker, index) => {
+        _playerColorPickers.forEach((picker) => {
             picker.addEventListener("input", _inputChanged);
         });
-        _playerNameInputs.forEach((input, index) => {
+        _playerNameInputs.forEach((input) => {
             input.addEventListener("input", _inputChanged);
         })
 
@@ -684,7 +698,6 @@ const editMenuController = (function() {
 
         if (_validateForm()) {
             if (_infoHasChanged()) {
-                console.log("info has changed")
                 // Show confirm changes and return
                 _confirmDialogWrapper.classList.remove("--js-hidden");
             }
@@ -746,15 +759,12 @@ const editMenuController = (function() {
     }
 
     const _infoHasChanged = () => {
-        console.log("=== Checking whether info has changed ===")
         for (let input of _playerNameInputs) {
             const currentName = gameController.getPlayerName(input.dataset.playerIndex)
-            console.log(`Current Name: ${currentName} vs. Input Value: ${input.value}`);
             if (input.value != currentName) return true;
         }
         for (let picker of _playerColorPickers) {
             const currentCol = gameController.getPlayerColor(picker.dataset.playerIndex).asHexString();
-            console.log(`Current Col: ${currentCol} vs. Picker Value: ${picker.value}`);
             if (picker.value != currentCol) return true;
         }
 

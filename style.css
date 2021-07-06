@@ -352,3 +352,35 @@ body {
 .l-edit-menu__confirm-dialog-wrapper.--js-hidden {
     display: none;
 }
+
+/* Victory message */
+.l-victory-message__wrapper {
+    position: fixed;
+    z-index: 10;
+    background-color: var(--body-bg-col);
+
+    --this-width: clamp(400px, 90vw, 1000px);
+    width: var(--this-width);
+    height: 100px;
+    top: calc(50vh - 50px);
+    left: calc(50vw - 0.5*var(--this-width));
+
+    border-radius: 15px;
+    border: 5px solid var(--player-names-col);
+
+    color: var(--player-names-col);
+    font-size: 48px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    box-shadow: 4px 8px 25px 0px rgb(85, 85, 85);
+
+    transition: opacity 0.4s ease-in-out;
+
+    pointer-events: none;
+}
+
+.l-victory-message__wrapper.--js-hidden {
+    opacity: 0%;
+}
